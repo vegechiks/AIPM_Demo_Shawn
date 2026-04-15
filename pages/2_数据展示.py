@@ -118,7 +118,10 @@ with filter_col2:
     gender_filter = st.selectbox("性别筛选", gender_options)
 
 with filter_col3:
-    sort_by = st.selectbox("排序方式", ["默认（评论时间）", "点赞量从高到低", "点赞量从低到高"])
+    sort_by = st.selectbox(
+        "排序方式",
+        ["评论时间从新到旧", "评论时间从旧到新", "点赞量从高到低", "点赞量从低到高"],
+    )
 
 # ── 应用筛选 ──
 filtered_df = df.copy()
@@ -131,7 +134,15 @@ if search_kw.strip():
 if gender_filter != "全部" and "gender" in filtered_df.columns:
     filtered_df = filtered_df[filtered_df["gender"] == gender_filter]
 
-if sort_by == "点赞量从高到低" and "like_count" in filtered_df.columns:
+if sort_by in ["评论时间从新到旧", "评论时间从旧到新"] and "comment_time" in filtered_df.columns:
+    filtered_df = filtered_df.assign(
+        _comment_time_sort=pd.to_datetime(filtered_df["comment_time"], errors="coerce")
+    ).sort_values(
+        "_comment_time_sort",
+        ascending=(sort_by == "评论时间从旧到新"),
+        na_position="last",
+    ).drop(columns=["_comment_time_sort"])
+elif sort_by == "点赞量从高到低" and "like_count" in filtered_df.columns:
     filtered_df = filtered_df.sort_values("like_count", ascending=False)
 elif sort_by == "点赞量从低到高" and "like_count" in filtered_df.columns:
     filtered_df = filtered_df.sort_values("like_count", ascending=True)

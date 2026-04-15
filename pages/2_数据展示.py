@@ -1,3 +1,5 @@
+import html
+
 import pandas as pd
 import streamlit as st
 
@@ -25,15 +27,64 @@ df = enrich_province_column(df)
 
 # ── 顶部统计卡片 ──
 st.divider()
+st.markdown(
+    """
+    <style>
+    .metric-tooltip {
+        min-width: 0;
+    }
+    .metric-tooltip__label {
+        color: rgba(49, 51, 63, 0.72);
+        font-size: 0.875rem;
+        line-height: 1.25;
+        margin-bottom: 0.25rem;
+    }
+    .metric-tooltip__value {
+        color: rgb(49, 51, 63);
+        font-size: 2.25rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: default;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+def render_metric(label: str, value: object, tooltip: object | None = None) -> None:
+    value_text = str(value)
+    tooltip_text = str(tooltip if tooltip is not None else value_text)
+    st.markdown(
+        f"""
+        <div class="metric-tooltip" title="{html.escape(tooltip_text, quote=True)}">
+            <div class="metric-tooltip__label">{html.escape(label)}</div>
+            <div class="metric-tooltip__value">{html.escape(value_text)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+video_title = df["video_title"].iloc[0] if "video_title" in df.columns else "—"
+bvid = df["bvid"].iloc[0] if "bvid" in df.columns else "—"
+
 m1, m2, m3, m4, m5 = st.columns(5)
-m1.metric("总评论数", f"{len(df):,}")
-m2.metric("视频标题", df["video_title"].iloc[0][:20] if "video_title" in df.columns else "—")
-m3.metric("BV 号", df["bvid"].iloc[0] if "bvid" in df.columns else "—")
+with m1:
+    render_metric("总评论数", f"{len(df):,}")
+with m2:
+    render_metric("视频标题", video_title, video_title)
+with m3:
+    render_metric("BV 号", bvid, bvid)
 male = (df["gender"] == "男").sum() if "gender" in df.columns else 0
 female = (df["gender"] == "女").sum() if "gender" in df.columns else 0
-m4.metric("男 / 女", f"{male} / {female}")
+with m4:
+    render_metric("男 / 女", f"{male} / {female}")
 provinces = df["ip_province"].nunique() if "ip_province" in df.columns else 0
-m5.metric("涉及省份/地区数", provinces)
+with m5:
+    render_metric("涉及省份/地区数", provinces)
 
 st.divider()
 

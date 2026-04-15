@@ -32,6 +32,7 @@ st.markdown(
     <style>
     .metric-tooltip {
         min-width: 0;
+        position: relative;
     }
     .metric-tooltip__label {
         color: rgba(49, 51, 63, 0.72);
@@ -48,6 +49,24 @@ st.markdown(
         text-overflow: ellipsis;
         cursor: default;
     }
+    .metric-tooltip:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 0;
+        top: calc(100% + 0.5rem);
+        z-index: 9999;
+        width: max-content;
+        max-width: min(36rem, 70vw);
+        padding: 0.55rem 0.7rem;
+        border-radius: 6px;
+        background: rgba(17, 24, 39, 0.96);
+        color: #fff;
+        font-size: 0.9rem;
+        line-height: 1.45;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -59,7 +78,7 @@ def render_metric(label: str, value: object, tooltip: object | None = None) -> N
     tooltip_text = str(tooltip if tooltip is not None else value_text)
     st.markdown(
         f"""
-        <div class="metric-tooltip" title="{html.escape(tooltip_text, quote=True)}">
+        <div class="metric-tooltip" title="{html.escape(tooltip_text, quote=True)}" data-tooltip="{html.escape(tooltip_text, quote=True)}">
             <div class="metric-tooltip__label">{html.escape(label)}</div>
             <div class="metric-tooltip__value">{html.escape(value_text)}</div>
         </div>

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import io
+import html
 import json
 import os
 import re
@@ -192,7 +193,101 @@ def render_sidebar_config():
     st.session_state.setdefault("video_title", "")
 
     with st.sidebar:
-        st.markdown("---")
+        st.markdown(
+            """
+            <style>
+            .sidebar-brand {
+                margin: 0.25rem 0 1rem;
+            }
+            .sidebar-brand__title {
+                font-size: 1.05rem;
+                font-weight: 700;
+                color: #111827;
+                line-height: 1.35;
+            }
+            .sidebar-brand__subtitle {
+                margin-top: 0.2rem;
+                color: #6b7280;
+                font-size: 0.82rem;
+                line-height: 1.35;
+            }
+            .sidebar-section-title {
+                margin: 1.1rem 0 0.45rem;
+                color: #6b7280;
+                font-size: 0.82rem;
+                font-weight: 600;
+                letter-spacing: 0;
+            }
+            .sidebar-task {
+                padding: 0.65rem 0.75rem;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                background: #ffffff;
+                margin-bottom: 0.65rem;
+            }
+            .sidebar-task__label {
+                color: #6b7280;
+                font-size: 0.78rem;
+                margin-bottom: 0.25rem;
+            }
+            .sidebar-task__title {
+                color: #111827;
+                font-size: 0.9rem;
+                line-height: 1.45;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+            .flow-step {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.65rem;
+                padding: 0.48rem 0;
+                border-bottom: 1px solid #eef2f7;
+            }
+            .flow-step:last-child {
+                border-bottom: 0;
+            }
+            .flow-step__name {
+                color: #111827;
+                font-size: 0.9rem;
+                line-height: 1.25;
+            }
+            .flow-badge {
+                flex: 0 0 auto;
+                border-radius: 999px;
+                padding: 0.16rem 0.5rem;
+                font-size: 0.74rem;
+                font-weight: 600;
+                line-height: 1.25;
+                border: 1px solid transparent;
+            }
+            .flow-badge--done {
+                color: #047857;
+                background: #ecfdf5;
+                border-color: #a7f3d0;
+            }
+            .flow-badge--ready {
+                color: #1d4ed8;
+                background: #eff6ff;
+                border-color: #bfdbfe;
+            }
+            .flow-badge--pending {
+                color: #6b7280;
+                background: #f9fafb;
+                border-color: #e5e7eb;
+            }
+            </style>
+            <div class="sidebar-brand">
+                <div class="sidebar-brand__title">短视频评论 AI 分析平台</div>
+                <div class="sidebar-brand__subtitle">Bilibili 评论分析 Demo</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         with st.expander("⚙️ 系统配置", expanded=False):
             cookie_val = st.text_area(
                 "Bilibili Cookie",
@@ -210,20 +305,48 @@ def render_sidebar_config():
             )
             st.session_state["deepseek_key"] = key_val
 
-        st.markdown("---")
-        st.caption("📊 数据流程状态")
         raw_ok = st.session_state.get("data_file") is not None
         sent_ok = st.session_state.get("sentiment_file") is not None
         topic_ok = st.session_state.get("topic_result") is not None
 
         bvid = st.session_state.get("current_bvid") or ""
         vtitle = st.session_state.get("video_title") or ""
-        label = f"《{vtitle}》" if vtitle else (bvid or "—")
+        current_task = f"《{vtitle}》" if vtitle else (bvid or "暂无视频")
+
+        def flow_badge(text: str, kind: str) -> str:
+            return f'<span class="flow-badge flow-badge--{kind}">{html.escape(text)}</span>'
+
+        flow_steps = [
+            ("数据爬取", "已完成", "done") if raw_ok else ("数据爬取", "未开始", "pending"),
+            ("数据展示", "可查看", "ready") if raw_ok else ("数据展示", "待数据", "pending"),
+            ("情感分析", "已完成", "done") if sent_ok else (
+                ("情感分析", "可分析", "ready") if raw_ok else ("情感分析", "未开始", "pending")
+            ),
+            ("主题分析", "已完成", "done") if topic_ok else (
+                ("主题分析", "可分析", "ready") if raw_ok else ("主题分析", "未开始", "pending")
+            ),
+        ]
+        flow_html = "".join(
+            f"""
+            <div class="flow-step">
+                <span class="flow-step__name">{html.escape(name)}</span>
+                {flow_badge(status, kind)}
+            </div>
+            """
+            for name, status, kind in flow_steps
+        )
 
         st.markdown(
-            f"{'✅' if raw_ok else '⏳'} 数据爬取：{label if raw_ok else '未开始'}\n\n"
-            f"{'✅' if sent_ok else '⏳'} 情感分析：{'已完成' if sent_ok else '未开始'}\n\n"
-            f"{'✅' if topic_ok else '⏳'} 主题分析：{'已完成' if topic_ok else '未开始'}"
+            f"""
+            <div class="sidebar-section-title">当前任务</div>
+            <div class="sidebar-task" title="{html.escape(current_task, quote=True)}">
+                <div class="sidebar-task__label">视频</div>
+                <div class="sidebar-task__title">{html.escape(current_task)}</div>
+            </div>
+            <div class="sidebar-section-title">流程状态</div>
+            {flow_html}
+            """,
+            unsafe_allow_html=True,
         )
 
 

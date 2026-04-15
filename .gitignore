@@ -1,0 +1,28 @@
+# 数据文件（含用户爬取数据，不提交）
+data/*.csv
+data/*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# 环境变量（含密钥）
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit 缓存
+.streamlit/secrets.toml

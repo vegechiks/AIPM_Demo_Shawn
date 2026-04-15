@@ -196,6 +196,16 @@ def render_sidebar_config():
         st.markdown(
             """
             <style>
+            section[data-testid="stSidebar"] [data-testid="stSidebarNav"] ul li:first-child a span {
+                display: none;
+            }
+            section[data-testid="stSidebar"] [data-testid="stSidebarNav"] ul li:first-child a::after {
+                content: "首页";
+                color: inherit;
+                font-size: 1rem;
+                font-weight: inherit;
+                line-height: inherit;
+            }
             .sidebar-brand {
                 margin: 0.25rem 0 1rem;
             }

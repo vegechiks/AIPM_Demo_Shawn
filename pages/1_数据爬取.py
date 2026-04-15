@@ -68,6 +68,7 @@ with param_col1:
     )
 with param_col2:
     st.metric("预计最大评论数", f"约 {max_pages * 20} 条")
+    st.caption("当前仅统计一级评论，不含楼中楼回复。")
 
 # ── Cookie 提醒 ──
 cookie = st.session_state.get("bili_cookie", "").strip()

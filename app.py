@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import streamlit as st
+
 from backend.stopwords import default_stopwords_text
 
 st.set_page_config(
@@ -22,11 +25,12 @@ st.session_state.setdefault("sentiment_prompt_template", "")
 st.session_state.setdefault("sentiment_custom_prompt", "")
 st.session_state.setdefault("custom_stopwords_text", default_stopwords_text())
 
-# ── 侧边栏 ──
+# 侧边栏
 from backend.utils import render_sidebar_config
+
 render_sidebar_config()
 
-# ── 主页内容 ──
+# 主页内容
 st.title("🔍 短视频评论 AI 分析平台")
 st.markdown(
     """
@@ -82,3 +86,10 @@ with st.expander("ℹ️ 关于本项目"):
         情感分析与主题分析主要面向中文短文本评论场景。视频总结功能依赖 B 站字幕，若视频没有可用字幕则无法生成总结。
         """
     )
+
+readme_path = Path(__file__).resolve().parent / "README.md"
+with st.expander("📘 产品说明书"):
+    if readme_path.exists():
+        st.markdown(readme_path.read_text(encoding="utf-8"))
+    else:
+        st.warning("未找到 README.md，无法加载产品说明书。")

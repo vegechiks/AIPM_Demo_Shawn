@@ -32,21 +32,10 @@ def render_topic_results(result: dict):
     st.divider()
     st.subheader("📊 主题分析结果")
 
-    tab_options = ["☁️ 词云", "📋 主题关键词", "📈 主题分布"]
-    st.session_state.setdefault("topic_active_tab", "☁️ 词云")
-    if st.session_state["topic_active_tab"] not in tab_options:
-        st.session_state["topic_active_tab"] = "☁️ 词云"
-
-    active_tab = st.radio(
-        "主题分析结果栏目",
-        tab_options,
-        key="topic_active_tab",
-        horizontal=True,
-        label_visibility="collapsed",
-    )
+    tab1, tab2, tab3 = st.tabs(["☁️ 词云", "📋 主题关键词", "📈 主题分布"])
 
     # ── Tab1: 词云 ──
-    if active_tab == "☁️ 词云":
+    with tab1:
         st.markdown("**全量词频词云**（基于所有评论分词结果）")
         if word_freq:
             img_bytes = generate_wordcloud_image(word_freq)
@@ -79,7 +68,7 @@ def render_topic_results(result: dict):
             st.info("暂无词频数据")
 
     # ── Tab2: 主题关键词 ──
-    if active_tab == "📋 主题关键词":
+    with tab2:
         st.markdown(f"**BTM 共识别 {len(topic_words_df)} 个主题，每个主题展示 Top 10 关键词**")
 
         # 判断是否已经过 AI 命名
@@ -94,7 +83,6 @@ def render_topic_results(result: dict):
         if not has_ai_name:
             if api_key:
                 if st.button("✨ AI 分析：为每个主题自动命名", type="secondary"):
-                    st.session_state["topic_active_tab"] = "📋 主题关键词"
                     with st.spinner("DeepSeek 正在分析主题关键词，请稍候..."):
                         try:
                             named_df = ai_name_topics(topic_words_df, api_key)
@@ -104,7 +92,6 @@ def render_topic_results(result: dict):
                             topic_words_df = named_df
                             has_ai_name = True
                             st.success("✅ AI 命名完成！")
-                            st.session_state["topic_active_tab"] = "📋 主题关键词"
                             st.rerun()
                         except Exception as e:
                             st.error(f"AI 命名失败：{e}")
@@ -146,7 +133,7 @@ def render_topic_results(result: dict):
             st.dataframe(topic_words_df[display_cols], use_container_width=True)
 
     # ── Tab3: 主题分布 ──
-    if active_tab == "📈 主题分布":
+    with tab3:
         if "dominant_topic" in doc_topic_df.columns:
             # 合并主题名称
             name_map = {

@@ -78,7 +78,7 @@ def render_metric(label: str, value: object, tooltip: object | None = None) -> N
     tooltip_text = str(tooltip if tooltip is not None else value_text)
     st.markdown(
         f"""
-        <div class="metric-tooltip" title="{html.escape(tooltip_text, quote=True)}" data-tooltip="{html.escape(tooltip_text, quote=True)}">
+        <div class="metric-tooltip" data-tooltip="{html.escape(tooltip_text, quote=True)}">
             <div class="metric-tooltip__label">{html.escape(label)}</div>
             <div class="metric-tooltip__value">{html.escape(value_text)}</div>
         </div>

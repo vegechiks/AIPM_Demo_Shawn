@@ -1,3 +1,5 @@
+import html
+
 import streamlit as st
 
 from backend.asr import download_bilibili_audio, transcribe_audio_openai
@@ -72,6 +74,66 @@ def source_matches_video(source: dict | None, video: dict | None) -> bool:
         and str(source.get("cid") or "") == str(video.get("cid") or "")
     )
 
+
+st.markdown(
+    """
+    <style>
+    .metric-tooltip {
+        min-width: 0;
+        position: relative;
+    }
+    .metric-tooltip__label {
+        color: rgba(49, 51, 63, 0.72);
+        font-size: 0.875rem;
+        line-height: 1.25;
+        margin-bottom: 0.25rem;
+    }
+    .metric-tooltip__value {
+        color: rgb(49, 51, 63);
+        font-size: 2.25rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: default;
+    }
+    .metric-tooltip:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 0;
+        top: calc(100% + 0.5rem);
+        z-index: 9999;
+        width: max-content;
+        max-width: min(36rem, 70vw);
+        padding: 0.55rem 0.7rem;
+        border-radius: 6px;
+        background: rgba(17, 24, 39, 0.96);
+        color: #fff;
+        font-size: 0.9rem;
+        line-height: 1.45;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+def render_metric(label: str, value: object, tooltip: object | None = None) -> None:
+    value_text = str(value)
+    tooltip_text = str(tooltip if tooltip is not None else value_text)
+    st.markdown(
+        f"""
+        <div class="metric-tooltip" data-tooltip="{html.escape(tooltip_text, quote=True)}">
+            <div class="metric-tooltip__label">{html.escape(label)}</div>
+            <div class="metric-tooltip__value">{html.escape(value_text)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 default_bvid = st.session_state.get("current_bvid") or st.session_state.get("subtitle_bvid") or ""
 
 st.divider()
@@ -138,9 +200,12 @@ if video_info:
         st.warning("检测到旧字幕不属于当前视频，已自动清除。请重新加载字幕。")
 
     info_col1, info_col2, info_col3 = st.columns(3)
-    info_col1.metric("视频标题", video_info.get("title", "—"))
-    info_col2.metric("BV 号", video_info.get("bvid", "—"))
-    info_col3.metric("分 P 数", video_info.get("page_count", 1))
+    with info_col1:
+        render_metric("视频标题", video_info.get("title", "—"), video_info.get("title", "—"))
+    with info_col2:
+        render_metric("BV 号", video_info.get("bvid", "—"), video_info.get("bvid", "—"))
+    with info_col3:
+        render_metric("分 P 数", video_info.get("page_count", 1))
 
 st.divider()
 st.subheader("字幕内容")

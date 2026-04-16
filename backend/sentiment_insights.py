@@ -184,6 +184,7 @@ def build_china_map_rows(df: pd.DataFrame, stopwords: set[str] | None = None) ->
 
 
 def render_china_sentiment_map(rows: list[dict]) -> str:
+    # 方案C: 短名 data + nameMap{长名 -> 短名}，与独立地图测试通过的逻辑一致。
     data_pair = [
         (
             row.get("map_name") or row["province"],
@@ -198,26 +199,30 @@ def render_china_sentiment_map(rows: list[dict]) -> str:
         )
         for row in rows
     ]
+
+    # 数据自适应范围：确保即使负面评论占主导时颜色也清晰可见
+    ratios = [row["ratio"] for row in rows]
+    vmin = round(min(ratios), 4) if ratios else 0.0
+    vmax = round(max(ratios), 4) if ratios else 1.0
+    if vmax <= vmin:
+        vmax = min(vmin + 0.05, 1.0)
+
     tooltip_formatter = JsCode(
         """
-        function (params) {
-            const values = params.data && Array.isArray(params.data.value)
-                ? params.data.value
-                : (Array.isArray(params.value) ? params.value : null);
-            if (!values) {
-                return params.name + '<br/>暂无正负向评论数据';
+            function(params){
+                if(!params.data || !Array.isArray(params.data.value)) {
+                    return params.name + '<br/>暂无正负向评论数据';
+                }
+                var v = params.data.value;
+                return params.name
+                    + '<br/>积极倾向: ' + (v[0] * 100).toFixed(1) + '%'
+                    + '<br/>积极: ' + v[1] + '　消极: ' + v[2] + '　中性: ' + v[3]
+                    + '<br/>总评论: ' + v[4]
+                    + '<br/><br/>高频词 Top10:<br/>' + v[5];
             }
-            const ratio = (values[0] * 100).toFixed(1) + '%';
-            return params.name
-                + '<br/>积极倾向: ' + ratio
-                + '<br/>积极: ' + values[1]
-                + '<br/>消极: ' + values[2]
-                + '<br/>中性: ' + values[3]
-                + '<br/>总评论: ' + values[4]
-                + '<br/><br/>高频词 Top10:<br/>' + values[5];
-        }
         """
     )
+
     chart = (
         Map(init_opts=opts.InitOpts(width="100%", height="620px"))
         .add(
@@ -234,8 +239,8 @@ def render_china_sentiment_map(rows: list[dict]) -> str:
                 subtitle="热度 = 积极评论数 / (积极评论数 + 消极评论数)，保留港澳台，排除境外与未知 IP",
             ),
             visualmap_opts=opts.VisualMapOpts(
-                min_=0,
-                max_=1,
+                min_=vmin,
+                max_=vmax,
                 dimension=0,
                 range_text=["积极占比高", "积极占比低"],
                 is_calculable=True,

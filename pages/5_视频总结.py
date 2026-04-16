@@ -205,7 +205,11 @@ if video_info:
     with info_col2:
         render_metric("BV 号", video_info.get("bvid", "—"), video_info.get("bvid", "—"))
     with info_col3:
-        render_metric("分 P 数", video_info.get("page_count", 1))
+        render_metric(
+            "视频分段数",
+            video_info.get("page_count", 1),
+            "视频分段数：B站视频可能包含多个分段（常称 P1、P2、P3）。当前功能默认读取第 1 个分段的字幕；如果视频有多个分段，后续可扩展为选择指定分段。",
+        )
 
 st.divider()
 st.subheader("字幕内容")

@@ -110,11 +110,22 @@ def build_china_map_rows(df: pd.DataFrame, stopwords: set[str] | None = None) ->
         return []
     china_df = with_china_province(df)
     china_df = china_df[china_df["china_province"].notna()].copy()
+    sentiment_text = china_df["sentiment"].astype(str).str.lower()
+    china_df["_sentiment_norm"] = sentiment_text.map(
+        {
+            "positive": "positive",
+            "积极": "positive",
+            "neutral": "neutral",
+            "中性": "neutral",
+            "negative": "negative",
+            "消极": "negative",
+        }
+    ).fillna(sentiment_text)
     rows: list[dict] = []
     for province, group in china_df.groupby("china_province"):
-        positive = int((group["sentiment"] == "positive").sum())
-        negative = int((group["sentiment"] == "negative").sum())
-        neutral = int((group["sentiment"] == "neutral").sum())
+        positive = int((group["_sentiment_norm"] == "positive").sum())
+        negative = int((group["_sentiment_norm"] == "negative").sum())
+        neutral = int((group["_sentiment_norm"] == "neutral").sum())
         denom = positive + negative
         if denom <= 0:
             continue
@@ -136,9 +147,9 @@ def build_china_map_rows(df: pd.DataFrame, stopwords: set[str] | None = None) ->
 
 def render_china_sentiment_map(rows: list[dict]) -> str:
     data_pair = [
-        {
-            "name": row["province"],
-            "value": [
+        (
+            row["province"],
+            [
                 round(row["ratio"], 4),
                 row["positive"],
                 row["negative"],
@@ -146,7 +157,7 @@ def render_china_sentiment_map(rows: list[dict]) -> str:
                 row["total"],
                 row["top_words"],
             ],
-        }
+        )
         for row in rows
     ]
     tooltip_formatter = JsCode(

@@ -378,12 +378,18 @@ custom_prompt = st.text_area(
 st.subheader("⚙️ 分析参数")
 p1, p2, p3 = st.columns(3)
 with p1:
+    total_comments = len(raw_df)
+    min_comments = 1 if total_comments < 20 else 20
+    step_comments = 1 if total_comments < 20 else 20
+    default_comments = min(200, total_comments)
+    default_comments = max(min_comments, default_comments)
     max_comments = st.slider(
         "最大分析条数",
-        min_value=20,
-        max_value=min(500, len(raw_df)),
-        value=min(200, len(raw_df)),
-        step=20,
+        min_value=min_comments,
+        max_value=total_comments,
+        value=default_comments,
+        step=step_comments,
+        help="上限为当前已爬取评论总数，非固定封顶。分析条数越多，API 调用次数和耗时越高。",
     )
 with p2:
     st.metric("预计 DeepSeek API 调用次数", max_comments)

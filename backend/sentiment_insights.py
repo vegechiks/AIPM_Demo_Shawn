@@ -29,6 +29,43 @@ CHINA_PROVINCES = {
     "香港", "澳门", "台湾",
 }
 
+PYECHARTS_MAP_NAMES = {
+    "北京": "北京市",
+    "天津": "天津市",
+    "上海": "上海市",
+    "重庆": "重庆市",
+    "河北": "河北省",
+    "山西": "山西省",
+    "辽宁": "辽宁省",
+    "吉林": "吉林省",
+    "黑龙江": "黑龙江省",
+    "江苏": "江苏省",
+    "浙江": "浙江省",
+    "安徽": "安徽省",
+    "福建": "福建省",
+    "江西": "江西省",
+    "山东": "山东省",
+    "河南": "河南省",
+    "湖北": "湖北省",
+    "湖南": "湖南省",
+    "广东": "广东省",
+    "海南": "海南省",
+    "四川": "四川省",
+    "贵州": "贵州省",
+    "云南": "云南省",
+    "陕西": "陕西省",
+    "甘肃": "甘肃省",
+    "青海": "青海省",
+    "内蒙古": "内蒙古自治区",
+    "广西": "广西壮族自治区",
+    "西藏": "西藏自治区",
+    "宁夏": "宁夏回族自治区",
+    "新疆": "新疆维吾尔自治区",
+    "香港": "香港特别行政区",
+    "澳门": "澳门特别行政区",
+    "台湾": "台湾省",
+}
+
 PROVINCE_ALIASES = {
     "北京市": "北京", "天津市": "天津", "上海市": "上海", "重庆市": "重庆",
     "河北省": "河北", "山西省": "山西", "辽宁省": "辽宁", "吉林省": "吉林", "黑龙江省": "黑龙江",
@@ -133,6 +170,7 @@ def build_china_map_rows(df: pd.DataFrame, stopwords: set[str] | None = None) ->
         rows.append(
             {
                 "province": province,
+                "map_name": PYECHARTS_MAP_NAMES.get(province, province),
                 "positive": positive,
                 "negative": negative,
                 "neutral": neutral,
@@ -148,7 +186,7 @@ def build_china_map_rows(df: pd.DataFrame, stopwords: set[str] | None = None) ->
 def render_china_sentiment_map(rows: list[dict]) -> str:
     data_pair = [
         (
-            row["province"],
+            row.get("map_name") or row["province"],
             [
                 round(row["ratio"], 4),
                 row["positive"],
@@ -163,17 +201,20 @@ def render_china_sentiment_map(rows: list[dict]) -> str:
     tooltip_formatter = JsCode(
         """
         function (params) {
-            if (!params.value || !Array.isArray(params.value)) {
+            const values = params.data && Array.isArray(params.data.value)
+                ? params.data.value
+                : (Array.isArray(params.value) ? params.value : null);
+            if (!values) {
                 return params.name + '<br/>暂无正负向评论数据';
             }
-            const ratio = (params.value[0] * 100).toFixed(1) + '%';
+            const ratio = (values[0] * 100).toFixed(1) + '%';
             return params.name
                 + '<br/>积极倾向: ' + ratio
-                + '<br/>积极: ' + params.value[1]
-                + '<br/>消极: ' + params.value[2]
-                + '<br/>中性: ' + params.value[3]
-                + '<br/>总评论: ' + params.value[4]
-                + '<br/><br/>高频词 Top10:<br/>' + params.value[5];
+                + '<br/>积极: ' + values[1]
+                + '<br/>消极: ' + values[2]
+                + '<br/>中性: ' + values[3]
+                + '<br/>总评论: ' + values[4]
+                + '<br/><br/>高频词 Top10:<br/>' + values[5];
         }
         """
     )

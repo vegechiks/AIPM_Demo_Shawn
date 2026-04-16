@@ -118,6 +118,16 @@ if st.button("🚀 开始爬取", type="primary", disabled=not can_crawl):
             st.session_state["data_file"] = str(filepath)
             st.session_state["current_bvid"] = bvid
             st.session_state["video_title"] = df["video_title"].iloc[0] if "video_title" in df.columns else bvid
+            meta_cols = [
+                "video_url", "bvid", "aid", "video_title", "video_desc", "video_pubdate",
+                "video_duration", "video_tname", "up_name", "up_mid", "view_count",
+                "like_count_video", "coin_count", "favorite_count", "share_count", "reply_count",
+            ]
+            st.session_state["video_meta"] = {
+                col: df[col].iloc[0]
+                for col in meta_cols
+                if col in df.columns
+            }
             # 新的爬取任务清空旧的分析结果
             st.session_state["sentiment_file"] = None
             st.session_state["topic_result"] = None

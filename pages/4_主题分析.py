@@ -250,6 +250,10 @@ st.divider()
 
 # ── 主题参数 ──
 st.subheader("⚙️ 主题分析参数")
+st.info(
+    "停用词是在分词和主题建模中被过滤的常见词，会直接影响词云、主题关键词和主题分布。"
+    "请在左侧「系统配置」中统一维护全局停用词；结合当前视频补充无意义口头词、梗词或平台词后，主题分析效果通常更好。"
+)
 
 p1, p2 = st.columns(2)
 with p1:
@@ -270,12 +274,6 @@ with p2:
         help="迭代次数越多，结果越稳定，但耗时越长",
     )
 
-extra_stopwords = st.text_area(
-    "自定义停用词（可选）",
-    placeholder="输入需要过滤的词，用逗号、空格或换行分隔，例如：哈哈, 啊啊, 视频",
-    height=80,
-)
-
 st.divider()
 
 if st.button("🚀 开始主题分析", type="primary"):
@@ -285,7 +283,7 @@ if st.button("🚀 开始主题分析", type="primary"):
             result = run_topic_analysis_sync(
                 source_df,
                 num_topics=num_topics,
-                extra_stopwords_str=extra_stopwords,
+                extra_stopwords_str=st.session_state.get("custom_stopwords_text", ""),
                 iterations=iterations,
             )
             st.write(f"✅ BTM 模型训练完成，覆盖 {result['n_docs']} 条有效文档")

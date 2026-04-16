@@ -12,6 +12,10 @@ from typing import Generator
 
 import requests
 
+PAGE_MAX_RETRIES = 3
+PAGE_RETRY_SLEEP = 0.8
+PAGE_INTERVAL_RANGE = (0.25, 0.6)
+
 
 # ─────────────────────────────────────────
 # URL / BV 解析与校验
@@ -54,11 +58,43 @@ def _build_headers(cookie: str, bvid: str) -> dict:
     }
 
 
+def _format_ts(ts: int | float | None) -> str:
+    if not ts:
+        return ""
+    try:
+        return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return ""
+
+
+def _parse_video_meta(video: dict, bvid: str, video_url: str) -> dict:
+    owner = video.get("owner") or {}
+    stat = video.get("stat") or {}
+    return {
+        "video_url": video_url,
+        "bvid": video.get("bvid") or bvid,
+        "aid": video.get("aid") or "",
+        "video_title": video.get("title") or bvid,
+        "video_desc": video.get("desc") or "",
+        "video_pubdate": _format_ts(video.get("pubdate")),
+        "video_duration": int(video.get("duration") or 0),
+        "video_tname": video.get("tname") or "",
+        "up_name": owner.get("name") or "",
+        "up_mid": str(owner.get("mid") or ""),
+        "view_count": int(stat.get("view") or 0),
+        "like_count_video": int(stat.get("like") or 0),
+        "coin_count": int(stat.get("coin") or 0),
+        "favorite_count": int(stat.get("favorite") or 0),
+        "share_count": int(stat.get("share") or 0),
+        "reply_count": int(stat.get("reply") or 0),
+    }
+
+
 # ─────────────────────────────────────────
 # 评论解析
 # ─────────────────────────────────────────
 
-def _parse_reply(rp: dict, bvid: str, title: str, video_url: str) -> dict | None:
+def _parse_reply(rp: dict, video_meta: dict) -> dict | None:
     content = (rp.get("content") or {}).get("message") or ""
     if not content.strip():
         return None
@@ -75,9 +111,7 @@ def _parse_reply(rp: dict, bvid: str, title: str, video_url: str) -> dict | None
 
     return {
         "platform": "bilibili",
-        "video_url": video_url,
-        "bvid": bvid,
-        "video_title": title,
+        **video_meta,
         "comment_id": str(rpid),
         "user_id": str(member.get("mid") or ""),
         "username": member.get("uname") or "",
@@ -125,8 +159,9 @@ def crawl_bilibili(
             msg = j.get("message") or "未知错误"
             yield 1.0, f"❌ 获取视频信息失败：{msg}（code={j.get('code')}）\n\n可能原因：Cookie 已失效或视频不存在", []
             return
-        aid = j["data"]["aid"]
-        title = j["data"].get("title") or bvid
+        video_meta = _parse_video_meta(j["data"], bvid, video_url)
+        aid = video_meta["aid"]
+        title = video_meta["video_title"]
     except Exception as e:
         yield 1.0, f"❌ 网络请求失败：{e}", []
         return
@@ -138,17 +173,31 @@ def crawl_bilibili(
     page = 1
 
     while page <= max_pages:
-        try:
-            resp = session.get(
-                "https://api.bilibili.com/x/v2/reply/main",
-                params={"type": 1, "mode": 3, "oid": aid, "next": page},
-                headers=headers,
-                timeout=10,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            yield min(0.05 + page / max_pages * 0.9, 0.99), f"⚠️ 第 {page} 页请求出错：{e}，跳过", all_comments
+        data = None
+        last_error = None
+        for attempt in range(1, PAGE_MAX_RETRIES + 1):
+            try:
+                resp = session.get(
+                    "https://api.bilibili.com/x/v2/reply/main",
+                    params={"type": 1, "mode": 3, "oid": aid, "next": page},
+                    headers=headers,
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                break
+            except Exception as e:
+                last_error = e
+                if attempt < PAGE_MAX_RETRIES:
+                    yield (
+                        min(0.05 + page / max_pages * 0.9, 0.99),
+                        f"⚠️ 第 {page} 页请求失败，正在重试 {attempt}/{PAGE_MAX_RETRIES - 1}...",
+                        all_comments,
+                    )
+                    time.sleep(PAGE_RETRY_SLEEP * attempt)
+
+        if data is None:
+            yield min(0.05 + page / max_pages * 0.9, 0.99), f"⚠️ 第 {page} 页多次请求失败：{last_error}，已停止爬取", all_comments
             break
 
         d = data.get("data") or {}
@@ -156,7 +205,7 @@ def crawl_bilibili(
         replies = d.get("replies") or []
 
         for rp in replies:
-            parsed = _parse_reply(rp, bvid, title, video_url)
+            parsed = _parse_reply(rp, video_meta)
             if parsed:
                 all_comments.append(parsed)
 
@@ -171,6 +220,6 @@ def crawl_bilibili(
             break
 
         page += 1
-        time.sleep(random.uniform(0.8, 1.5))
+        time.sleep(random.uniform(*PAGE_INTERVAL_RANGE))
 
     yield 1.0, f"✅ 爬取完成！共获取 {len(all_comments)} 条评论", all_comments

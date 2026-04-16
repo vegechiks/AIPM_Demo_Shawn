@@ -12,22 +12,7 @@ import pandas as pd
 import jieba
 import bitermplus as btm
 
-
-# ─────────────────────────────────────────
-# 默认中文停用词（内置基础集）
-# ─────────────────────────────────────────
-
-DEFAULT_STOPWORDS_ZH = {
-    "的", "了", "是", "在", "我", "有", "和", "就", "不", "人", "都", "一", "一个",
-    "上", "也", "很", "到", "说", "要", "去", "你", "会", "着", "没有", "看", "好",
-    "自己", "这", "那", "啊", "吧", "呢", "嗯", "哦", "哈", "呀", "啥", "咋", "嘛",
-    "对", "为", "以", "就是", "什么", "这个", "那个", "然后", "但是", "还是", "因为",
-    "所以", "如果", "可以", "没", "让", "用", "来", "大", "中", "他", "她", "它",
-    "这样", "那样", "已经", "现在", "时候", "知道", "觉得", "感觉", "一下", "一样",
-    "可能", "应该", "还有", "只是", "而且", "不是", "真的", "一直", "一些", "关于",
-    "更", "被", "把", "比", "从", "这里", "那里", "只有", "之前", "之后", "最",
-    "多", "少", "新", "小", "大", "个", "年", "月", "日", "点", "分", "秒",
-}
+from backend.stopwords import merge_stopwords, parse_stopwords
 
 # 专有名词保护（避免被 jieba 切分）
 CUSTOM_WORDS = [
@@ -75,9 +60,7 @@ def preprocess_comments(
     filtered_df: 过滤掉太短文档后的 df（index 已 reset）
     """
     _add_custom_words()
-    stopwords = DEFAULT_STOPWORDS_ZH.copy()
-    if extra_stopwords:
-        stopwords.update(extra_stopwords)
+    stopwords = set(extra_stopwords) if extra_stopwords is not None else merge_stopwords()
 
     df = df.dropna(subset=["content"]).copy()
     df["_clean"] = df["content"].apply(_clean_zh)
@@ -171,12 +154,7 @@ def run_topic_analysis(
     调用方需要在 progress==1.0 后读取结果。
     """
     yield 0.05, "正在解析停用词..."
-    extra_sw = set()
-    if extra_stopwords_str.strip():
-        for word in re.split(r"[,，\s\n]+", extra_stopwords_str.strip()):
-            w = word.strip()
-            if w:
-                extra_sw.add(w)
+    extra_sw = parse_stopwords(extra_stopwords_str)
 
     yield 0.15, "正在对评论进行分词和预处理..."
     texts, filtered_df = preprocess_comments(df, extra_stopwords=extra_sw)
@@ -241,12 +219,7 @@ def run_topic_analysis_sync(
         "n_docs": int,
       }
     """
-    extra_sw = set()
-    if extra_stopwords_str.strip():
-        for word in re.split(r"[,，\s\n]+", extra_stopwords_str.strip()):
-            w = word.strip()
-            if w:
-                extra_sw.add(w)
+    extra_sw = parse_stopwords(extra_stopwords_str)
 
     texts, filtered_df = preprocess_comments(df, extra_stopwords=extra_sw)
 

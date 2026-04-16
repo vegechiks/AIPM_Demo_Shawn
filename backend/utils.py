@@ -16,6 +16,7 @@ import streamlit as st
 from openai import OpenAI
 
 from backend.config import DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from backend.stopwords import default_stopwords_text
 
 
 # ─────────────────────────────────────────
@@ -186,11 +187,17 @@ def render_sidebar_config():
     """在侧边栏渲染 Cookie 和 API Key 配置框，同步到 session_state"""
     st.session_state.setdefault("bili_cookie", "")
     st.session_state.setdefault("deepseek_key", "")
+    st.session_state.setdefault("openai_asr_key", "")
     st.session_state.setdefault("data_file", None)
     st.session_state.setdefault("sentiment_file", None)
     st.session_state.setdefault("topic_result", None)
+    st.session_state.setdefault("subtitle_summary_done", False)
     st.session_state.setdefault("current_bvid", "")
     st.session_state.setdefault("video_title", "")
+    st.session_state.setdefault("video_meta", {})
+    st.session_state.setdefault("sentiment_prompt_template", "")
+    st.session_state.setdefault("sentiment_custom_prompt", "")
+    st.session_state.setdefault("custom_stopwords_text", default_stopwords_text())
 
     with st.sidebar:
         st.markdown(
@@ -315,13 +322,37 @@ def render_sidebar_config():
             )
             st.session_state["deepseek_key"] = key_val
 
+            asr_key_val = st.text_input(
+                "OpenAI ASR API Key",
+                value=st.session_state["openai_asr_key"],
+                type="password",
+                placeholder="sk-...",
+                help="用于字幕不稳定时调用云端语音转文字；不会替代 DeepSeek 总结 Key。",
+            )
+            st.session_state["openai_asr_key"] = asr_key_val
+
+            st.markdown("**停用词配置**")
+            st.caption(
+                "停用词是在分词统计和主题建模中被过滤的常见词，例如“的、了、这个”。"
+                "自定义后会影响情感分析图表的高频词 Top10 和主题分析结果；结合当前视频补充无意义口头词、梗词或平台词，效果通常更好。"
+            )
+            stopwords_val = st.text_area(
+                "全局停用词",
+                value=st.session_state["custom_stopwords_text"],
+                height=160,
+                help="支持换行、空格或逗号分隔。留空时建议恢复默认词，否则词频和主题结果会包含大量虚词。",
+            )
+            st.session_state["custom_stopwords_text"] = stopwords_val
+
         raw_ok = st.session_state.get("data_file") is not None
         sent_ok = st.session_state.get("sentiment_file") is not None
         topic_ok = st.session_state.get("topic_result") is not None
+        summary_ok = bool(st.session_state.get("subtitle_summary_done"))
 
         bvid = st.session_state.get("current_bvid") or ""
         vtitle = st.session_state.get("video_title") or ""
         current_task = f"《{vtitle}》" if vtitle else (bvid or "暂无视频")
+        has_video = bool(bvid or vtitle)
 
         def flow_badge(text: str, kind: str) -> str:
             return f'<span class="flow-badge flow-badge--{kind}">{html.escape(text)}</span>'
@@ -334,6 +365,9 @@ def render_sidebar_config():
             ),
             ("主题分析", "已完成", "done") if topic_ok else (
                 ("主题分析", "可分析", "ready") if raw_ok else ("主题分析", "未开始", "pending")
+            ),
+            ("视频总结", "已完成", "done") if summary_ok else (
+                ("视频总结", "可总结", "ready") if has_video else ("视频总结", "未开始", "pending")
             ),
         ]
         flow_html = "".join(

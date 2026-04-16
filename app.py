@@ -1,4 +1,5 @@
 import streamlit as st
+from backend.stopwords import default_stopwords_text
 
 st.set_page_config(
     page_title="短视频评论 AI 分析平台",
@@ -10,11 +11,16 @@ st.set_page_config(
 # 初始化 session_state
 st.session_state.setdefault("bili_cookie", "")
 st.session_state.setdefault("deepseek_key", "")
+st.session_state.setdefault("openai_asr_key", "")
 st.session_state.setdefault("data_file", None)
 st.session_state.setdefault("sentiment_file", None)
 st.session_state.setdefault("topic_result", None)
 st.session_state.setdefault("current_bvid", "")
 st.session_state.setdefault("video_title", "")
+st.session_state.setdefault("video_meta", {})
+st.session_state.setdefault("sentiment_prompt_template", "")
+st.session_state.setdefault("sentiment_custom_prompt", "")
+st.session_state.setdefault("custom_stopwords_text", default_stopwords_text())
 
 # ── 侧边栏 ──
 from backend.utils import render_sidebar_config
@@ -32,7 +38,7 @@ st.markdown(
 
 st.divider()
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     st.markdown("### 📥 第一步\n**数据爬取**\n\n输入 B 站视频链接，爬取视频一级评论数据")
 with col2:
@@ -41,6 +47,8 @@ with col3:
     st.markdown("### 💬 第三步\n**情感分析**\n\n使用 DeepSeek 大模型对评论进行事件级情感分类")
 with col4:
     st.markdown("### 🔬 第四步\n**主题分析**\n\n使用 BTM 模型挖掘短文本评论中的高频主题")
+with col5:
+    st.markdown("### 📝 扩展功能\n**视频总结**\n\n基于视频字幕生成内容概括与关键时间线")
 
 st.divider()
 
@@ -55,7 +63,7 @@ with st.expander("ℹ️ 关于本项目"):
         **项目说明**
         本项目并不直接复现论文中的具体研究主题，而是将论文中验证有效的方法组合，
         封装为一个面向短视频评论分析的交互式 Demo。
-        用户可以输入 B 站视频链接，完成评论爬取、数据查看、情感分析与主题建模等流程。
+        用户可以输入 B 站视频链接，完成评论爬取、数据查看、情感分析、主题建模与视频字幕总结等流程。
 
         **方法来源**
         在毕业论文实验中，我针对短视频评论文本，对多种情感分析方法和主题建模方法进行了效果对比。
@@ -67,8 +75,10 @@ with st.expander("ℹ️ 关于本项目"):
         **数据流程**
         `视频链接` → `一级评论爬取（CSV）` → `数据展示` → `情感分析（CSV）` → `主题建模（CSV）` → `可视化分析`
 
+        `视频链接` → `字幕获取` → `AI 视频总结`
+
         **版本说明**
         当前版本支持 Bilibili 平台评论爬取；爬取范围为视频一级评论，不包含楼中楼回复。
-        情感分析与主题分析主要面向中文短文本评论场景。
+        情感分析与主题分析主要面向中文短文本评论场景。视频总结功能依赖 B 站字幕，若视频没有可用字幕则无法生成总结。
         """
     )

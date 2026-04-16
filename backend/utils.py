@@ -15,7 +15,7 @@ import pandas as pd
 import streamlit as st
 from openai import OpenAI
 
-from backend.config import DATA_DIR, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from backend.config import DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 from backend.stopwords import default_stopwords_text
 
 
@@ -183,99 +183,6 @@ def ai_name_topics(
 # 侧边栏配置渲染（每个页面调用）
 # ─────────────────────────────────────────
 
-VIDEO_META_COLS = [
-    "video_url",
-    "bvid",
-    "aid",
-    "video_title",
-    "video_desc",
-    "video_pubdate",
-    "video_duration",
-    "video_tname",
-    "up_name",
-    "up_mid",
-    "view_count",
-    "like_count_video",
-    "coin_count",
-    "favorite_count",
-    "share_count",
-    "reply_count",
-]
-
-
-def _session_file_exists(key: str) -> bool:
-    path = st.session_state.get(key)
-    return bool(path) and Path(path).exists()
-
-
-def _latest_data_file(pattern: str) -> Path | None:
-    try:
-        files = [p for p in DATA_DIR.glob(pattern) if p.is_file()]
-    except Exception:
-        return None
-    if not files:
-        return None
-    return max(files, key=lambda p: p.stat().st_mtime)
-
-
-def _read_csv_head(path: Path) -> pd.DataFrame:
-    try:
-        return pd.read_csv(path, encoding="utf-8-sig", nrows=1)
-    except Exception:
-        return pd.DataFrame()
-
-
-def _extract_bvid_from_data_filename(path: Path) -> str:
-    match = re.match(r"^(?:comments|sentiment)_(BV[^_]+)_", path.name)
-    return match.group(1) if match else ""
-
-
-def _restore_video_context_from_csv(path: Path) -> None:
-    head = _read_csv_head(path)
-    fallback_bvid = _extract_bvid_from_data_filename(path)
-    if head.empty:
-        if fallback_bvid and not st.session_state.get("current_bvid"):
-            st.session_state["current_bvid"] = fallback_bvid
-        return
-
-    row = head.iloc[0]
-    bvid = str(row.get("bvid") or fallback_bvid or "").strip()
-    title = str(row.get("video_title") or "").strip()
-
-    if bvid:
-        st.session_state["current_bvid"] = bvid
-    if title:
-        st.session_state["video_title"] = title
-
-    video_meta = {
-        col: row.get(col)
-        for col in VIDEO_META_COLS
-        if col in head.columns and pd.notna(row.get(col))
-    }
-    if video_meta:
-        st.session_state["video_meta"] = video_meta
-
-
-def _restore_analysis_session_from_disk() -> None:
-    """Recover task context from saved CSV files after Streamlit recreates a session."""
-    if not _session_file_exists("data_file"):
-        latest_comments = _latest_data_file("comments_*.csv")
-        latest_sentiment = _latest_data_file("sentiment_*.csv")
-        recovered_data = latest_comments or latest_sentiment
-
-        if recovered_data:
-            st.session_state["data_file"] = str(recovered_data)
-            st.session_state["_recovered_data_file"] = recovered_data.name
-            _restore_video_context_from_csv(recovered_data)
-
-    if not _session_file_exists("sentiment_file"):
-        bvid = st.session_state.get("current_bvid") or ""
-        latest_sentiment = _latest_data_file(f"sentiment_{bvid}_*.csv") if bvid else None
-        latest_sentiment = latest_sentiment or _latest_data_file("sentiment_*.csv")
-        if latest_sentiment:
-            st.session_state["sentiment_file"] = str(latest_sentiment)
-            _restore_video_context_from_csv(latest_sentiment)
-
 def render_sidebar_config():
     """在侧边栏渲染 Cookie 和 API Key 配置框，同步到 session_state"""
     st.session_state.setdefault("bili_cookie", "")
@@ -291,7 +198,6 @@ def render_sidebar_config():
     st.session_state.setdefault("sentiment_prompt_template", "")
     st.session_state.setdefault("sentiment_custom_prompt", "")
     st.session_state.setdefault("custom_stopwords_text", default_stopwords_text())
-    _restore_analysis_session_from_disk()
 
     with st.sidebar:
         st.markdown(

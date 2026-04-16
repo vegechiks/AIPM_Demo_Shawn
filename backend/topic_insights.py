@@ -18,6 +18,10 @@ def _json_safe(value: Any) -> Any:
     """Convert pandas/numpy objects into JSON-serializable Python values."""
     if value is None:
         return None
+    if isinstance(value, pd.DataFrame):
+        return value.astype(object).where(pd.notna(value), None).to_dict(orient="records")
+    if isinstance(value, pd.Series):
+        return [_json_safe(item) for item in value.tolist()]
     if isinstance(value, (str, int, float, bool)):
         if isinstance(value, float) and not math.isfinite(value):
             return None
@@ -33,20 +37,39 @@ def _json_safe(value: Any) -> Any:
         return {str(_json_safe(k)): _json_safe(v) for k, v in value.items()}
     if isinstance(value, (list, tuple, set)):
         return [_json_safe(item) for item in value]
-    if pd.isna(value):
-        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    return str(value)
+
+
+def _safe_count(value: Any) -> float:
+    value = _json_safe(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _safe_text(value: Any, default: str = "") -> str:
+    value = _json_safe(value)
+    if value is None or value == "":
+        return default
     return str(value)
 
 
 def _split_keywords(value: object) -> list[str]:
-    return [word.strip() for word in str(value or "").split("、") if word.strip()]
+    text = _safe_text(value)
+    return [word.strip() for word in text.split("、") if word.strip()]
 
 
 def _topic_name_map(topic_words_df: pd.DataFrame) -> dict[int, str]:
     mapping: dict[int, str] = {}
     for _, row in topic_words_df.iterrows():
         tid = int(row["topic_id"])
-        mapping[tid] = str(row.get("topic_name") or f"主题 {tid + 1}")
+        mapping[tid] = _safe_text(row.get("topic_name"), f"主题 {tid + 1}")
     return mapping
 
 
@@ -77,7 +100,9 @@ def build_topic_report_payload(result: dict, video_meta: dict | None = None) -> 
     payload = {
         "video": _json_safe(video_meta or {}),
         "n_docs": n_docs,
-        "top_words": _json_safe(sorted(word_freq.items(), key=lambda item: item[1], reverse=True)[:20]),
+        "top_words": _json_safe(
+            sorted(word_freq.items(), key=lambda item: _safe_count(item[1]), reverse=True)[:20]
+        ),
         "has_sentiment": "sentiment" in doc_topic_df.columns,
         "topics": [],
     }
@@ -93,7 +118,7 @@ def build_topic_report_payload(result: dict, video_meta: dict | None = None) -> 
         topic_payload = {
             "topic_id": tid,
             "topic_name": name_map.get(tid, f"主题 {tid + 1}"),
-            "topic_description": str(row.get("topic_description") or ""),
+            "topic_description": _safe_text(row.get("topic_description")),
             "keywords": _split_keywords(row.get("keywords")),
             "count": count,
             "ratio": round(count / n_docs, 4) if n_docs else 0,
@@ -117,8 +142,18 @@ def build_topic_report_payload(result: dict, video_meta: dict | None = None) -> 
 
 
 def topic_report_cache_key(result: dict, video_meta: dict | None = None) -> str:
-    payload = build_topic_report_payload(result, video_meta=video_meta)
-    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    try:
+        payload = build_topic_report_payload(result, video_meta=video_meta)
+        raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+    except Exception:
+        fallback_payload = {
+            "video": _json_safe(video_meta or {}),
+            "n_docs": _json_safe(result.get("n_docs")),
+            "topic_words_df": _json_safe(result.get("topic_words_df")),
+            "doc_topic_df": _json_safe(result.get("doc_topic_df")),
+            "word_freq": _json_safe(result.get("word_freq")),
+        }
+        raw = json.dumps(fallback_payload, ensure_ascii=False, sort_keys=True, default=str)
     return md5(raw.encode("utf-8")).hexdigest()
 
 
@@ -136,7 +171,7 @@ def generate_topic_ai_report(result: dict, api_key: str, video_meta: dict | None
 6. 语言客观、简洁，适合放在数据分析报告中。
 
 主题分析数据 JSON：
-{json.dumps(payload, ensure_ascii=False)}
+{json.dumps(payload, ensure_ascii=False, default=str)}
 """
     resp = client.chat.completions.create(
         model=DEEPSEEK_MODEL,

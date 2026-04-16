@@ -207,7 +207,11 @@ def render_topic_results(result: dict):
         )
         api_key = st.session_state.get("deepseek_key", "").strip()
         video_meta = st.session_state.get("video_meta", {})
-        cache_key = topic_report_cache_key(result, video_meta=video_meta)
+        try:
+            cache_key = topic_report_cache_key(result, video_meta=video_meta)
+        except Exception as e:
+            cache_key = ""
+            st.warning(f"AI 分析缓存生成失败，已切换为无缓存模式：{e}")
         cached_key = st.session_state.get("topic_ai_report_key")
         cached_report = st.session_state.get("topic_ai_report", "")
 

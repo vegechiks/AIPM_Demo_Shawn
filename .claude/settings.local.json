@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ':*)",
+      "Bash(python3 -c \"import pyecharts; print\\(pyecharts.__file__\\)\")",
+      "Bash(python -c \"import pyecharts; print\\(pyecharts.__file__\\)\")",
+      "Bash(cmd /c \"python -c \\\\\"import pyecharts; print\\(pyecharts.__version__\\)\\\\\"\")",
+      "Bash(cmd /c \"cd /d E:\\\\面试文件\\\\AIPM_demo && python check_pyecharts.py\")",
+      "WebFetch(domain:assets.pyecharts.org)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
+  }
+}

@@ -170,7 +170,7 @@ def build_china_map_rows(df: pd.DataFrame, stopwords: set[str] | None = None) ->
         rows.append(
             {
                 "province": province,
-                "map_name": PYECHARTS_MAP_NAMES.get(province, province),
+                "map_name": province,
                 "positive": positive,
                 "negative": negative,
                 "neutral": neutral,
@@ -226,6 +226,7 @@ def render_china_sentiment_map(rows: list[dict]) -> str:
             "china",
             is_map_symbol_show=False,
             label_opts=opts.LabelOpts(is_show=False),
+            name_map=PROVINCE_ALIASES,
         )
         .set_global_opts(
             title_opts=opts.TitleOpts(

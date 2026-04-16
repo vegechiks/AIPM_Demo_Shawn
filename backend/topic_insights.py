@@ -4,12 +4,38 @@ AI report helpers for topic analysis results.
 from __future__ import annotations
 
 import json
+import math
 from hashlib import md5
+from typing import Any
 
 import pandas as pd
 from openai import OpenAI
 
 from backend.config import DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+
+
+def _json_safe(value: Any) -> Any:
+    """Convert pandas/numpy objects into JSON-serializable Python values."""
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        if isinstance(value, float) and not math.isfinite(value):
+            return None
+        return value
+    if hasattr(value, "item"):
+        try:
+            return _json_safe(value.item())
+        except Exception:
+            pass
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(_json_safe(k)): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if pd.isna(value):
+        return None
+    return str(value)
 
 
 def _split_keywords(value: object) -> list[str]:
@@ -49,9 +75,9 @@ def build_topic_report_payload(result: dict, video_meta: dict | None = None) -> 
     )
 
     payload = {
-        "video": video_meta or {},
+        "video": _json_safe(video_meta or {}),
         "n_docs": n_docs,
-        "top_words": sorted(word_freq.items(), key=lambda item: item[1], reverse=True)[:20],
+        "top_words": _json_safe(sorted(word_freq.items(), key=lambda item: item[1], reverse=True)[:20]),
         "has_sentiment": "sentiment" in doc_topic_df.columns,
         "topics": [],
     }
@@ -87,7 +113,7 @@ def build_topic_report_payload(result: dict, video_meta: dict | None = None) -> 
         payload["topics"].append(topic_payload)
 
     payload["topics"].sort(key=lambda item: item["count"], reverse=True)
-    return payload
+    return _json_safe(payload)
 
 
 def topic_report_cache_key(result: dict, video_meta: dict | None = None) -> str:

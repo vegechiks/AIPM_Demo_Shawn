@@ -2,6 +2,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from backend.topic_insights import generate_topic_ai_report, topic_report_cache_key
 from backend.topic_model import run_topic_analysis_sync
 from backend.utils import (
     render_sidebar_config,
@@ -32,7 +33,7 @@ def render_topic_results(result: dict):
     st.divider()
     st.subheader("📊 主题分析结果")
 
-    tab1, tab2, tab3 = st.tabs(["☁️ 词云", "📋 主题关键词", "📈 主题分布"])
+    tab1, tab2, tab3, tab4 = st.tabs(["☁️ 词云", "📋 主题关键词", "📈 主题分布", "🤖 AI分析"])
 
     # ── Tab1: 词云 ──
     with tab1:
@@ -197,6 +198,38 @@ def render_topic_results(result: dict):
         else:
             st.info("暂无文档-主题分配数据")
 
+    # ── Tab4: AI 分析 ──
+    with tab4:
+        st.markdown("#### AI 主题分析报告")
+        st.caption(
+            "AI 将结合主题关键词、主题占比、代表性评论和可选的情感标签生成解释报告。"
+            "若已先完成情感分析，报告会包含“主题 × 情感”解读。"
+        )
+        api_key = st.session_state.get("deepseek_key", "").strip()
+        video_meta = st.session_state.get("video_meta", {})
+        cache_key = topic_report_cache_key(result, video_meta=video_meta)
+        cached_key = st.session_state.get("topic_ai_report_key")
+        cached_report = st.session_state.get("topic_ai_report", "")
+
+        if cached_report and cached_key == cache_key:
+            st.markdown(cached_report)
+
+        if not api_key:
+            st.warning("请先在左侧系统配置中填入 DeepSeek API Key。")
+        if "sentiment" not in doc_topic_df.columns:
+            st.info("尚未检测到情感分析结果。报告仍可生成主题解读，但不会包含主题情感差异。")
+
+        if st.button("生成 AI 主题分析报告", disabled=not api_key):
+            with st.spinner("DeepSeek 正在生成主题分析报告..."):
+                try:
+                    report = generate_topic_ai_report(result, api_key, video_meta=video_meta)
+                except Exception as e:
+                    st.error(f"AI 主题分析报告生成失败：{e}")
+                else:
+                    st.session_state["topic_ai_report_key"] = cache_key
+                    st.session_state["topic_ai_report"] = report
+                    st.markdown(report)
+
     # ── 下载 ──
     st.divider()
     dl1, dl2 = st.columns(2)
@@ -294,6 +327,8 @@ if st.button("🚀 开始主题分析", type="primary"):
             st.stop()
 
     st.session_state["topic_result"] = result
+    st.session_state["topic_ai_report"] = ""
+    st.session_state["topic_ai_report_key"] = ""
     st.success(f"✅ 主题分析完成！共发现 **{num_topics} 个主题**，覆盖 **{result['n_docs']} 条**评论")
     render_topic_results(result)
 
